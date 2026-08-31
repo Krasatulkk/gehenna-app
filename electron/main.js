@@ -1,4 +1,5 @@
-const { app, BrowserWindow, session, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
 let mainWindow;
@@ -36,24 +37,79 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+
+    // ⭐ Проверка обновлений через 3 секунды после запуска (только в продакшене)
+    setTimeout(() => {
+      autoUpdater.checkForUpdatesAndNotify();
+    }, 3000);
   }
 
-  mainWindow.on('closed', () => (mainWindow = null));
+  mainWindow.on('closed', () => { mainWindow = null; });
 }
 
 app.whenReady().then(() => {
   createWindow();
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+// --- Обработчики автообновлений ---
+autoUpdater.on('update-available', () => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Обновление доступно',
+    message: 'Доступна новая версия Gehenna. Хотите скачать её сейчас?',
+    buttons: ['Да', 'Нет'],
+    cancelId: 1,
+  }).then(({ response }) => {
+    if (response === 0) {
+      autoUpdater.downloadUpdate();
+      if (mainWindow) {
+        mainWindow.webContents.send('update-status', 'Загрузка обновления...');
+      }
+    }
+  });
 });
 
-app.on('activate', () => {
-  if (mainWindow === null) createWindow();
+autoUpdater.on('download-progress', (progress) => {
+  const percent = Math.floor(progress.percent);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', `Загрузка: ${percent}%`);
+  }
 });
 
-// --- IPC: открытие диалога выбора папки (для доступа к файлам) ---
+autoUpdater.on('update-downloaded', () => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Готово!',
+    message: 'Обновление загружено. Перезапустить приложение для установки?',
+    buttons: ['Перезапустить', 'Позже'],
+  }).then(({ response }) => {
+    if (response === 0) {
+      autoUpdater.quitAndInstall();
+    } else if (mainWindow) {
+      mainWindow.webContents.send('update-status', 'Обновление будет установлено при следующем запуске.');
+    }
+  });
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Ошибка обновления:', err);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', 'Ошибка при проверке обновлений');
+  }
+});
+
+// Обработчик для ручной проверки обновлений (из настроек)
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return result;
+  } catch (err) {
+    console.error(err);
+    return { error: err.message };
+  }
+});
+
+// --- Обработчик диалога выбора папки (для доступа к файлам) ---
 ipcMain.handle('open-file-dialog', async () => {
   if (!mainWindow) return { canceled: true };
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -63,7 +119,10 @@ ipcMain.handle('open-file-dialog', async () => {
   return result;
 });
 
-// --- IPC: проверка обновлений (заглушка) ---
-ipcMain.handle('check-for-updates', async () => {
-  return { updateAvailable: false };
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', () => {
+  if (mainWindow === null) createWindow();
 });
