@@ -20,7 +20,7 @@ const VoiceButton: React.FC = () => {
       onClick={toggleListening}
       style={{
         position: 'fixed',
-        bottom: '24px',
+        bottom: '100px',
         right: '24px',
         width: '56px',
         height: '56px',

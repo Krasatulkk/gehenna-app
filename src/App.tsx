@@ -26,7 +26,7 @@ const AppContent: React.FC<{ user: string; onLogout: () => void }> = ({ user, on
         onClick={() => setShowSettings(true)}
         style={{
           position: 'fixed',
-          bottom: '24px',
+          bottom: '100px',
           left: '24px',
           width: '48px',
           height: '48px',

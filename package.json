@@ -1,6 +1,6 @@
 {
   "name": "gehenna-app",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Gehenna AI Desktop App",
   "main": "electron/main.js",
   "scripts": {
