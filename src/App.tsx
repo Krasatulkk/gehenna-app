@@ -1,44 +1,62 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { ChatProvider } from './contexts/ChatContext';
 import { SoundProvider } from './contexts/SoundContext';
-import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Chat from './pages/Chat';
-import ImageGen from './pages/ImageGen';
-import Assistants from './pages/Assistants';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
 import Login from './pages/Login';
-import FloatingAssistant from './components/FloatingAssistant';
+import SettingsModal from './components/SettingsModal';
+import ProfileModal from './components/ProfileModal';
+import VoiceButton from './components/VoiceButton';
 import { useVoiceAssistant } from './hooks/useVoiceAssistant';
+
+const AppContent: React.FC<{ user: string; onLogout: () => void }> = ({ user, onLogout }) => {
+  const { settings } = useSettings();
+  const [showSettings, setShowSettings] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <Header onProfileClick={() => setShowProfile(true)} />
+      <Chat />
+      <VoiceButton />
+
+      {/* Шестерёнка в левом нижнем углу */}
+      <button
+        onClick={() => setShowSettings(true)}
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '24px',
+          width: '48px',
+          height: '48px',
+          borderRadius: '50%',
+          border: 'none',
+          background: settings.theme.primary,
+          color: '#fff',
+          fontSize: '22px',
+          cursor: 'pointer',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        title="Настройки"
+      >
+        ⚙️
+      </button>
+
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} onLogout={onLogout} />}
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [user, setUser] = useState<string | null>(() => {
     return localStorage.getItem('gehenna-current-user') || null;
   });
-  const [selectedAssistant, setSelectedAssistant] = useState<string | null>(() => {
-    return localStorage.getItem('gehenna-assistant') || null;
-  });
-  const [showFloating, setShowFloating] = useState(false);
-
-  const { isActivated, deactivate } = useVoiceAssistant(selectedAssistant);
-
-  // ⭐ Получаем dndMode из настроек
-  const { settings } = useSettings();
-  const dndMode = settings.dndMode;
-
-  useEffect(() => {
-    if (isActivated) {
-      setShowFloating(true);
-      const timer = setTimeout(() => {
-        setShowFloating(false);
-        deactivate();
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [isActivated, deactivate]);
 
   if (!user) {
     return (
@@ -48,40 +66,26 @@ const App: React.FC = () => {
     );
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('gehenna-current-user');
+    setUser(null);
+  };
+
   return (
     <SettingsProvider>
-      <SoundProvider dndMode={dndMode}>
+      <SoundProviderWrapper>
         <ChatProvider>
-          <HashRouter>
-            <div style={{ display: 'flex', height: '100vh' }}>
-              <Sidebar />
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <Header />
-                <div style={{ flex: 1, overflow: 'auto' }}>
-                  <Routes>
-                    <Route path="/" element={<Chat />} />
-                    <Route path="/image" element={<ImageGen />} />
-                    <Route path="/assistants" element={<Assistants />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/settings" element={<Settings />} />
-                  </Routes>
-                </div>
-              </div>
-            </div>
-            {showFloating && (
-              <FloatingAssistant
-                assistantId={selectedAssistant}
-                onClose={() => {
-                  setShowFloating(false);
-                  deactivate();
-                }}
-              />
-            )}
-          </HashRouter>
+          <AppContent user={user} onLogout={handleLogout} />
         </ChatProvider>
-      </SoundProvider>
+      </SoundProviderWrapper>
     </SettingsProvider>
   );
+};
+
+// Обёртка для SoundProvider, чтобы получить dndMode из настроек
+const SoundProviderWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { settings } = useSettings();
+  return <SoundProvider dndMode={settings.dndMode}>{children}</SoundProvider>;
 };
 
 export default App;

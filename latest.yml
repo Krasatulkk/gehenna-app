@@ -1,0 +1,10 @@
+version: 0.3.0
+files:
+  - url: Gehenna.exe
+    size: 172675584
+  - url: ffmpeg.dll
+    size: 2887680
+  - url: icudtl.dat
+    size: 10717392
+path: Gehenna.exe
+releaseDate: '2026-09-10T12:00:00.000Z'

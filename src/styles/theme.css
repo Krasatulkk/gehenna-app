@@ -1,82 +1,315 @@
 :root {
-  --color-bg: #ffffff;
-  --color-surface: #f0f9ff;
+  --color-bg: #0a0a0f;
+  --color-surface: #111827;
   --color-primary: #38bdf8;
   --color-primary-hover: #0ea5e9;
-  --color-text: #0f172a;
-  --color-text-secondary: #475569;
-  --color-border: #e2e8f0;
+  --color-text: #f8fafc;
+  --color-text-secondary: #94a3b8;
+  --color-border: #1e293b;
   --font-size-base: 14px;
   --font-family: sans-serif;
   --panel-opacity: 0.8;
   --animations-enabled: 1;
 }
 
-body {
-  margin: 0;
-  font-family: var(--font-family);
-  font-size: var(--font-size-base);
-  background: var(--color-bg);
-  color: var(--color-text);
-  transition: background 0.5s, color 0.5s;
-}
-
 * {
   box-sizing: border-box;
 }
 
-/* Стекло (28) */
-.glass {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
-/* Неоновое свечение (24) */
-.neon-hover {
-  transition: box-shadow 0.3s ease;
-}
-.neon-hover:hover {
-  box-shadow: 0 0 20px var(--color-primary), 0 0 40px var(--color-primary);
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  background: var(--color-bg);
+  color: var(--color-text);
+  transition: background 0.5s ease, color 0.5s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Кастомные скроллбары (V18) */
+#root {
+  height: 100%;
+}
+
+/* ============================================ */
+/*           КАСТОМНЫЙ СКРОЛЛБАР                */
+/* ============================================ */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: var(--color-surface);
+  background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--color-primary);
   border-radius: 10px;
+  opacity: 0.5;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-primary-hover);
 }
 
-/* Анимации */
+/* ============================================ */
+/*              АНИМАЦИИ                        */
+/* ============================================ */
+
+/* Плавное появление сообщений снизу вверх */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-@keyframes bounce {
-  0%, 80%, 100% { transform: scale(0.8); opacity: 0.3; }
-  40% { transform: scale(1.2); opacity: 1; }
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Отключение анимаций (37) */
-body:has([data-animations="disabled"]) * {
+/* Движение градиента (для фона чата) */
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Пульсация точек (индикатор печатания) */
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* Вращение спиннера */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Плавное появление модальных окон */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Выезд нового чата слева (для будущего) */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Пульсация (для голосовой кнопки) */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* ============================================ */
+/*           ПРЕМИАЛЬНЫЕ КЛАССЫ                 */
+/* ============================================ */
+
+/* Кнопки с градиентом и тенью */
+.button-premium {
+  border-radius: 30px;
+  padding: 10px 24px;
+  border: none;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.button-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.10);
+}
+
+.button-premium:active {
+  transform: scale(0.97);
+}
+
+/* Карточки с мягкими тенями */
+.card-premium {
+  border-radius: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.card-premium:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Поля ввода с плавным фокусом */
+.input-premium {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.input-premium:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
+}
+
+/* Бейджи / статусы */
+.badge-premium {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* Разделители */
+.divider-premium {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--color-border), transparent);
+  margin: 24px 0;
+}
+
+/* ============================================ */
+/*           ЭФФЕКТ СТЕКЛА (GLASS)              */
+/* ============================================ */
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================ */
+/*        НЕОНОВОЕ СВЕЧЕНИЕ КНОПОК              */
+/* ============================================ */
+
+.neon-hover {
+  transition: box-shadow 0.3s ease;
+}
+
+.neon-hover:hover {
+  box-shadow: 0 0 20px var(--color-primary), 0 0 40px var(--color-primary);
+}
+
+/* ============================================ */
+/*         АНИМИРОВАННЫЙ ФОН ЧАТА               */
+/* ============================================ */
+
+.chat-background {
+  background: linear-gradient(-45deg, #0a0a0f, #111827, #1e293b, #0a0a0f);
+  background-size: 400% 400%;
+  animation: gradientMove 20s ease infinite;
+}
+
+/* Если анимации отключены */
+body[data-animations="disabled"] .chat-background {
+  animation: none;
+}
+
+body[data-animations="disabled"] * {
   animation-duration: 0s !important;
   transition-duration: 0s !important;
+}
+
+/* ============================================ */
+/*             УТИЛИТЫ                          */
+/* ============================================ */
+
+.text-center {
+  text-align: center;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Плавные переходы для всех кликабельных элементов */
+button, a, input, select, textarea {
+  transition: all 0.25s ease;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ============================================ */
+/*        АДАПТАЦИЯ ПОД МОБИЛЬНЫЕ               */
+/* ============================================ */
+
+@media (max-width: 768px) {
+  :root {
+    --font-size-base: 13px;
+  }
+
+  .button-premium {
+    padding: 8px 18px;
+    font-size: 14px;
+  }
+
+  .card-premium {
+    border-radius: 18px;
+    padding: 16px;
+  }
 }

@@ -2,17 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useChat } from '../contexts/ChatContext';
 import { useSound } from '../contexts/SoundContext';
+import { sendMessageToAI } from '../api/client';
 
 const Chat: React.FC = () => {
   const { settings } = useSettings();
-  const { theme, wallpaper, animationsEnabled } = settings;
-  const { avatar } = settings;
-  const { getCurrentChat, addMessage, clearChat } = useChat();
+  const { theme, avatar, animationsEnabled } = settings;
+  const { getCurrentChat, addMessage } = useChat();
   const { playSend, playReceive } = useSound();
   const currentChat = getCurrentChat();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -22,112 +24,66 @@ const Chat: React.FC = () => {
     scrollToBottom();
   }, [currentChat?.messages]);
 
-  const sendMessage = () => {
-    if (!input.trim() || !currentChat) return;
-    addMessage(currentChat.id, { from: 'user', text: input });
-    playSend();
-    setIsTyping(true);
-    setInput('');
-    setTimeout(() => {
-      if (currentChat) {
-        addMessage(currentChat.id, {
-          from: 'gehenna',
-          text: `Это тестовый ответ на: "${input}" (ИИ пока не подключён)`,
-        });
-        setIsTyping(false);
-        playReceive();
-      }
-    }, 1000 + Math.random() * 1000);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setPendingImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
   };
 
-  const handleClearChat = () => {
+  const sendMessage = async () => {
+    if (!input.trim() && !pendingImage) return;
     if (!currentChat) return;
-    if (window.confirm('Очистить весь чат? Это действие необратимо.')) {
-      clearChat(currentChat.id);
+
+    // Отправляем текст
+    if (input.trim()) {
+      addMessage(currentChat.id, { from: 'user', text: input });
+      playSend();
+    }
+
+    // Отправляем изображение
+    if (pendingImage) {
+      addMessage(currentChat.id, { from: 'user', text: `[Фото] ${input || ''}`, image: pendingImage });
+      setPendingImage(null);
+    }
+
+    const userMessage = input;
+    setInput('');
+    setIsTyping(true);
+
+    try {
+      const response = await sendMessageToAI(userMessage || 'Что на фото?', 'default');
+      setIsTyping(false);
+      playReceive();
+
+      if (response.type === 'mcp_command' && response.tool) {
+        const result = await window.electronAPI?.executeMCP(response.tool, response.params || {});
+        addMessage(currentChat.id, { from: 'gehenna', text: `✅ Результат: ${result}` });
+      } else {
+        addMessage(currentChat.id, { from: 'gehenna', text: response.response || 'Ответ получен' });
+      }
+    } catch (error: any) {
+      setIsTyping(false);
+      addMessage(currentChat.id, { from: 'gehenna', text: `❌ Ошибка: ${error.message}` });
     }
   };
 
-  const copyMessage = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
-
-  const exportChat = () => {
-    if (!currentChat) return;
-    const lines = currentChat.messages.map(
-      (msg) => `[${new Date(msg.timestamp).toLocaleString()}] ${msg.from === 'user' ? 'Вы' : 'Gehenna'}: ${msg.text}`
-    );
-    const content = `Чат: ${currentChat.name}\n${'='.repeat(30)}\n${lines.join('\n')}`;
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chat_${currentChat.id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   if (!currentChat) {
-    return (
-      <div style={{ padding: '24px', color: theme.textSecondary }}>
-        Нет активного чата. Создайте новый.
-      </div>
-    );
+    return <div style={{ padding: '24px', color: theme.textSecondary }}>Нет активного чата</div>;
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div
-        style={{
-          padding: '12px 24px',
-          borderBottom: `1px solid ${theme.border}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: theme.bg,
-        }}
-      >
-        <span style={{ fontWeight: 600, color: theme.text }}>{currentChat.name}</span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={exportChat}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '16px',
-              border: `1px solid ${theme.border}`,
-              background: 'transparent',
-              color: theme.textSecondary,
-              cursor: 'pointer',
-              fontSize: '13px',
-            }}
-          >
-            📤 Экспорт
-          </button>
-          <button
-            onClick={handleClearChat}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '16px',
-              border: `1px solid ${theme.border}`,
-              background: 'transparent',
-              color: theme.textSecondary,
-              cursor: 'pointer',
-              fontSize: '13px',
-            }}
-          >
-            🗑️ Очистить
-          </button>
-        </div>
-      </div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      {/* Область сообщений с анимированным фоном */}
       <div
         style={{
           flex: 1,
           padding: '20px',
           overflowY: 'auto',
-          backgroundImage: wallpaper || 'none',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          transition: 'background 0.3s',
+          background: 'linear-gradient(-45deg, #0a0a0f, #111827, #1e293b, #0a0a0f)',
+          backgroundSize: '400% 400%',
+          animation: animationsEnabled ? 'gradientMove 20s ease infinite' : 'none',
         }}
       >
         {currentChat.messages.map((msg) => {
@@ -145,89 +101,27 @@ const Chat: React.FC = () => {
               }}
             >
               {!isUser && (
-                <div
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    background: theme.primary,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    fontWeight: 700,
-                    fontSize: '16px',
-                    flexShrink: 0,
-                  }}
-                >
-                  G
-                </div>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: theme.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '16px', flexShrink: 0 }}>G</div>
               )}
               <div
                 style={{
                   maxWidth: '70%',
                   padding: '12px 16px',
-                  borderRadius: '12px',
+                  borderRadius: '16px',
                   background: isUser ? theme.primary : theme.surface,
                   color: isUser ? '#fff' : theme.text,
                   border: isUser ? 'none' : `1px solid ${theme.border}`,
                   wordWrap: 'break-word',
-                  position: 'relative',
                 }}
               >
-                {msg.text}
-                <button
-                  onClick={() => copyMessage(msg.text)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    marginLeft: '8px',
-                    color: isUser ? 'rgba(255,255,255,0.7)' : theme.textSecondary,
-                    padding: 0,
-                    verticalAlign: 'middle',
-                  }}
-                  title="Копировать"
-                >
-                  📋
-                </button>
+                {msg.image && (
+                  <img src={msg.image} alt="Uploaded" style={{ maxWidth: '100%', borderRadius: '12px', marginBottom: msg.text ? '8px' : 0 }} />
+                )}
+                {msg.text && <div>{msg.text}</div>}
               </div>
               {isUser && (
-                <div
-                  style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                    background: theme.surface,
-                    border: `1px solid ${theme.border}`,
-                  }}
-                >
-                  {avatar ? (
-                    <img
-                      src={avatar}
-                      alt="User"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        background: theme.primary,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: '16px',
-                      }}
-                    >
-                      U
-                    </div>
-                  )}
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: theme.surface, border: `1px solid ${theme.border}` }}>
+                  {avatar ? <img src={avatar} alt="User" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', background: theme.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>U</div>}
                 </div>
               )}
             </div>
@@ -235,71 +129,18 @@ const Chat: React.FC = () => {
         })}
         {isTyping && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                background: theme.primary,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: '16px',
-                flexShrink: 0,
-              }}
-            >
-              G
-            </div>
-            <div
-              style={{
-                padding: '12px 16px',
-                borderRadius: '12px',
-                background: theme.surface,
-                border: `1px solid ${theme.border}`,
-                color: theme.textSecondary,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: theme.primary,
-                  animation: animationsEnabled ? 'bounce 1.2s infinite ease-in-out' : 'none',
-                }}
-              />
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: theme.primary,
-                  animation: animationsEnabled ? 'bounce 1.2s infinite ease-in-out 0.2s' : 'none',
-                }}
-              />
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: theme.primary,
-                  animation: animationsEnabled ? 'bounce 1.2s infinite ease-in-out 0.4s' : 'none',
-                }}
-              />
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: theme.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>G</div>
+            <div style={{ padding: '12px 16px', borderRadius: '16px', background: theme.surface, border: `1px solid ${theme.border}`, display: 'flex', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: theme.primary, animation: 'bounce 1.2s infinite ease-in-out' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: theme.primary, animation: 'bounce 1.2s infinite ease-in-out 0.2s' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: theme.primary, animation: 'bounce 1.2s infinite ease-in-out 0.4s' }} />
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Поле ввода */}
       <div
         style={{
           padding: '16px 20px',
@@ -307,8 +148,35 @@ const Chat: React.FC = () => {
           display: 'flex',
           gap: '12px',
           background: theme.bg,
+          alignItems: 'center',
         }}
       >
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            width: '40px', height: '40px', borderRadius: '50%', border: 'none',
+            background: theme.surface, color: theme.text, cursor: 'pointer',
+            fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+          }}
+          title="Прикрепить фото"
+        >
+          📎
+        </button>
+        <input type="file" ref={fileInputRef} accept="image/*" style={{ display: 'none' }} onChange={handleFileUpload} />
+
+        {pendingImage && (
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <img src={pendingImage} alt="Pending" style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover' }} />
+            <button
+              onClick={() => setPendingImage(null)}
+              style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', border: 'none', background: '#ef4444', color: '#fff', fontSize: '11px', cursor: 'pointer' }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         <input
           type="text"
           value={input}
@@ -316,33 +184,20 @@ const Chat: React.FC = () => {
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
           placeholder="Введите сообщение..."
           style={{
-            flex: 1,
-            padding: '10px 16px',
-            borderRadius: '24px',
-            border: `1px solid ${theme.border}`,
-            background: theme.surface,
-            color: theme.text,
-            outline: 'none',
-            transition: 'border-color 0.2s',
+            flex: 1, padding: '12px 18px', borderRadius: '24px',
+            border: `1px solid ${theme.border}`, background: theme.surface,
+            color: theme.text, outline: 'none', fontSize: '14px',
           }}
         />
         <button
           onClick={sendMessage}
           style={{
-            padding: '10px 20px',
-            borderRadius: '24px',
-            border: 'none',
-            background: theme.primary,
-            color: '#fff',
-            fontWeight: 600,
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            transition: 'all 0.25s',
+            padding: '12px 24px', borderRadius: '24px', border: 'none',
+            background: theme.primary, color: '#fff', fontWeight: 600,
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
         >
-          Отправить
+          ➡️
         </button>
       </div>
     </div>

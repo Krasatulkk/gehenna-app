@@ -5,6 +5,7 @@ export type Message = {
   from: 'user' | 'gehenna';
   text: string;
   timestamp: number;
+  image?: string;  //
 };
 
 export type Chat = {

@@ -1,38 +1,49 @@
 import React from 'react';
 import { useSettings } from '../contexts/SettingsContext';
-import { useLocation, useNavigate } from 'react-router-dom';
 
-const Header: React.FC = () => {
+type HeaderProps = {
+  onProfileClick: () => void;
+};
+
+const Header: React.FC<HeaderProps> = ({ onProfileClick }) => {
   const { settings } = useSettings();
   const { theme, avatar } = settings;
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  const pageNames: Record<string, string> = {
-    '/': 'Чат с Gehenna',
-    '/image': 'Генерация изображений',
-    '/avatar': '3D-Аватар',
-    '/profile': 'Профиль',
-    '/settings': 'Настройки',
-  };
-  const title = pageNames[location.pathname] || 'Gehenna';
 
   return (
     <div
       style={{
-        height: '60px',
+        height: '64px',
         padding: '0 24px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         borderBottom: `1px solid ${theme.border}`,
-        background: theme.bg,
+        background: `rgba(${theme.bg === '#ffffff' ? '255,255,255' : '17,24,39'}, 0.7)`,
+        backdropFilter: 'blur(12px)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
       }}
     >
-      <span style={{ fontWeight: 600, fontSize: '18px' }}>{title}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span style={{ fontSize: '24px', fontWeight: 800, color: theme.primary, letterSpacing: '1px' }}>
+          GEHENNA
+        </span>
+      </div>
+
       <div
-        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
-        onClick={() => navigate('/profile')}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          cursor: 'pointer',
+          padding: '6px 12px',
+          borderRadius: '30px',
+          transition: 'background 0.2s',
+        }}
+        onClick={onProfileClick}
+        onMouseEnter={(e) => (e.currentTarget.style.background = `${theme.primary}15`)}
+        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
       >
         <span style={{ fontSize: '14px', color: theme.textSecondary }}>Пользователь</span>
         {avatar ? (
@@ -44,6 +55,7 @@ const Header: React.FC = () => {
               height: '36px',
               borderRadius: '50%',
               objectFit: 'cover',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
             }}
           />
         ) : (
@@ -59,6 +71,7 @@ const Header: React.FC = () => {
               color: '#fff',
               fontWeight: 700,
               fontSize: '16px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
             }}
           >
             G
